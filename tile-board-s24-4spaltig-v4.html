@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>Tile Board</title>
+  <style>
+    :root {
+      --bg: #080b10;
+      --panel: #111722;
+      --panel2: #172131;
+      --text: #eef4ff;
+      --muted: #9aa8bd;
+      --accent: #4da3ff;
+      --ok: #30d158;
+      --warn: #ff9f0a;
+      --danger: #ff453a;
+      --line: rgba(255,255,255,.11);
+      --shadow: 0 14px 30px rgba(0,0,0,.35);
+      --zoom: 1;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overscroll-behavior: none;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .app {
+      width: 100vw;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(77,163,255,.22), transparent 36%),
+        linear-gradient(180deg, #0b1018 0%, #07090d 100%);
+    }
+
+    header {
+      height: 56px;
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(8,11,16,.86);
+      backdrop-filter: blur(14px);
+      z-index: 20;
+    }
+
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .title-block {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .title {
+      font-weight: 800;
+      letter-spacing: .2px;
+      font-size: 18px;
+      line-height: 1.05;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .menu {
+      position: fixed;
+      left: 10px;
+      top: 62px;
+      width: min(330px, calc(100vw - 20px));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(17,23,34,.98);
+      box-shadow: var(--shadow);
+      padding: 10px;
+      z-index: 50;
+      display: none;
+    }
+
+    .menu.open { display: block; }
+
+    .menu button, .menu label {
+      width: 100%;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      margin: 4px 0;
+      color: var(--text);
+      background: rgba(255,255,255,.055);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .menu button.danger { color: #ffd5d2; border-color: rgba(255,69,58,.35); }
+    .menu select {
+      color: var(--text);
+      background: #0b111b;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 6px 8px;
+    }
+
+    main {
+      flex: 1;
+      overflow: auto;
+      padding: 12px 10px 94px;
+      scroll-behavior: smooth;
+    }
+
+    .scale-wrap {
+      width: 100%;
+      min-height: 100%;
+      transform: scale(var(--zoom));
+      transform-origin: top left;
+    }
+
+    .board {
+      position: relative;
+      width: calc(100vw - 20px);
+      min-height: 820px;
+    }
+
+    .tile {
+      position: absolute;
+      width: calc((100vw - 52px) / 4);
+      height: 142px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.065), transparent 40%),
+        var(--panel);
+      box-shadow: 0 10px 20px rgba(0,0,0,.24);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    .tile.done {
+      border: 3px solid #30d158;
+      background:
+        linear-gradient(180deg, rgba(48,209,88,.16), transparent 42%),
+        #101a17;
+      box-shadow:
+        0 0 0 2px rgba(48,209,88,.18),
+        0 10px 20px rgba(0,0,0,.24);
+    }
+
+    .tile-head {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 32px;
+      gap: 5px;
+      padding: 7px 7px 0;
+      align-items: start;
+      min-height: 46px;
+    }
+
+    .tile-name {
+      display: block;
+      width: 100%;
+      min-height: 39px;
+      font-weight: 850;
+      font-size: 15px;
+      line-height: 1.08;
+      outline: none;
+      padding: 3px 4px;
+      border-radius: 9px;
+      overflow-wrap: anywhere;
+    }
+
+    .tile-name:focus {
+      background: rgba(77,163,255,.16);
+      box-shadow: inset 0 0 0 1px rgba(77,163,255,.45);
+    }
+
+    .thumb {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid var(--line);
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 14px;
+      opacity: .95;
+    }
+
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .tile-mid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 5px;
+      padding: 5px 7px 5px;
+      align-items: stretch;
+    }
+
+    .toggle, .weight-btn {
+      min-height: 30px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.07);
+      color: var(--text);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .toggle.done {
+      color: #d6ffdf;
+      background: rgba(48,209,88,.2);
+      border-color: rgba(48,209,88,.45);
+    }
+
+    .tile-mid > .weight-display { display: none; }
+
+    .weight {
+      grid-column: 1;
+      display: grid;
+      grid-template-columns: 28px 1fr 28px;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .weight-display {
+      min-height: 30px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      color: #dcecff;
+    }
+
+    .drag-handle {
+      margin-top: auto;
+      height: 25px;
+      border-top: 1px solid var(--line);
+      background: rgba(255,255,255,.045);
+      display: grid;
+      place-items: center;
+      cursor: grab;
+      touch-action: none;
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 3px;
+    }
+
+    .drag-handle:active { cursor: grabbing; }
+
+    .bottom-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 8px 10px calc(8px + var(--safe-bottom));
+      border-top: 1px solid var(--line);
+      background: rgba(8,11,16,.90);
+      backdrop-filter: blur(14px);
+      z-index: 25;
+      display: grid;
+      grid-template-columns: 42px 42px 1fr 42px 42px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .zoom-readout {
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,.055);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      color: #dcecff;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.84);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .overlay.open { display: flex; }
+
+    .camera-box, .gallery-box, .lightbox-box {
+      width: min(680px, 100%);
+      max-height: 92dvh;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: #0e1420;
+      box-shadow: var(--shadow);
+      padding: 12px;
+    }
+
+    .overlay-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .overlay-head h2 {
+      font-size: 18px;
+      margin: 0;
+      flex: 1;
+    }
+
+    video {
+      width: 100%;
+      aspect-ratio: 9 / 14;
+      max-height: 72dvh;
+      object-fit: cover;
+      border-radius: 18px;
+      background: #000;
+      transform-origin: center;
+    }
+
+    .camera-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .primary, .secondary, .danger-btn {
+      min-height: 44px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .primary { background: rgba(77,163,255,.24); border-color: rgba(77,163,255,.45); }
+    .secondary { background: rgba(255,255,255,.065); }
+    .danger-btn { background: rgba(255,69,58,.16); border-color: rgba(255,69,58,.4); }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .photo-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,.045);
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .photo-card img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      display: block;
+    }
+
+    .photo-card div {
+      padding: 7px 8px;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .lightbox-img {
+      width: 100%;
+      max-height: 72dvh;
+      object-fit: contain;
+      background: #000;
+      border-radius: 16px;
+      display: block;
+    }
+
+    .lightbox-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 24px 10px;
+    }
+
+    @media (min-width: 500px) {
+      .board { width: min(720px, calc(100vw - 20px)); margin-inline: auto; }
+      .tile { width: calc((min(720px, calc(100vw - 20px)) - 32px) / 4); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <button class="icon-btn" id="menuBtn" aria-label="Menü öffnen">☰</button>
+      <div class="title-block">
+        <div class="title">Tile Board</div>
+        <div class="subtitle">Doppeltipp auf Kachel: Foto · Ziehen nur am Griff</div>
+      </div>
+    </header>
+
+    <nav class="menu" id="menu">
+      <button id="resetMarks">Markierungen zurücksetzen</button>
+      <button id="resetPositions">Positionen zurücksetzen</button>
+      <button id="openGallery">Galerie öffnen</button>
+      <button class="danger" id="resetAll">Alles zurücksetzen</button>
+      <label>
+        <span>Objektiv</span>
+        <select id="lensSelect" aria-label="Objektiv auswählen">
+          <option value="1">1×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+          <option value="2.2">2.2×</option>
+        </select>
+      </label>
+    </nav>
+
+    <main id="scroller">
+      <div class="scale-wrap" id="scaleWrap">
+        <section class="board" id="board" aria-label="Tile Board"></section>
+      </div>
+    </main>
+
+    <div class="bottom-bar">
+      <button class="icon-btn" id="zoomMinus" aria-label="Verkleinern">−</button>
+      <button class="icon-btn" id="zoomPlus" aria-label="Vergrößern">+</button>
+      <div class="zoom-readout" id="zoomReadout">100 %</div>
+      <button class="icon-btn" id="scrollUp" aria-label="Nach oben">↑</button>
+      <button class="icon-btn" id="scrollDown" aria-label="Nach unten">↓</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="cameraOverlay">
+    <div class="camera-box">
+      <div class="overlay-head">
+        <h2 id="cameraTitle">Foto aufnehmen</h2>
+        <button class="icon-btn" id="closeCamera">×</button>
+      </div>
+      <video id="video" autoplay playsinline muted></video>
+      <div class="camera-actions">
+        <button class="primary" id="captureBtn">Auslösen</button>
+        <button class="secondary" id="cancelCamera">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="galleryOverlay">
+    <div class="gallery-box">
+      <div class="overlay-head">
+        <h2>Galerie</h2>
+        <button class="icon-btn" id="closeGallery">×</button>
+      </div>
+      <div id="galleryGrid" class="gallery-grid"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="lightboxOverlay">
+    <div class="lightbox-box">
+      <div class="overlay-head">
+        <h2 id="lightboxTitle">Foto</h2>
+        <button class="icon-btn" id="closeLightbox">×</button>
+      </div>
+      <img id="lightboxImg" class="lightbox-img" alt="Foto" />
+      <div class="lightbox-actions">
+        <button class="primary" id="downloadPhoto">Download</button>
+        <button class="danger-btn" id="deletePhoto">Löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "tileBoard.s24.v4.exerciseNames";
+    const board = document.getElementById("board");
+    const scroller = document.getElementById("scroller");
+    const scaleWrap = document.getElementById("scaleWrap");
+    const zoomReadout = document.getElementById("zoomReadout");
+    const menu = document.getElementById("menu");
+    const lensSelect = document.getElementById("lensSelect");
+
+    const defaultNames = [
+      "Trizeps",
+      "Bizeps",
+      "Schulter",
+      "Brustpresse",
+      "Bein",
+      "Bein",
+      "Beinpresse",
+      "Rudern",
+      "Rücken",
+      "Bauch"
+    ];
+
+    const defaultTiles = Array.from({ length: 10 }, (_, i) => ({
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + i),
+      name: defaultNames[i],
+      done: false,
+      weight: 10,
+      x: null,
+      y: null,
+      photoId: null
+    }));
+
+    let state = loadState();
+    let activeTileId = null;
+    let stream = null;
+    let activePhotoId = null;
+    let saveTimer = null;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.tiles?.length === 10) return parsed;
+        }
+      } catch(e) {}
+      return {
+        tiles: defaultTiles,
+        zoom: 1,
+        lens: 1,
+        photos: []
+      };
+    }
+
+    function saveStateSoon() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveState, 120);
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch(e) {
+        alert("Der Browser-Speicher ist voll. Bitte Fotos löschen oder alles zurücksetzen.");
+      }
+    }
+
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+    function gridMetrics() {
+      const gap = 10;
+      const cols = 4;
+      const tileW = (board.clientWidth - gap * (cols - 1)) / cols;
+      const tileH = 142;
+      return {
+        gap,
+        cols,
+        tileW,
+        tileH,
+        stepX: tileW + gap,
+        stepY: tileH + gap
+      };
+    }
+
+    function snapToGrid(x, y) {
+      const g = gridMetrics();
+      const col = clamp(Math.round(x / g.stepX), 0, g.cols - 1);
+      const row = Math.max(0, Math.round(y / g.stepY));
+      return {
+        x: col * g.stepX,
+        y: row * g.stepY
+      };
+    }
+
+    function defaultPosition(index) {
+      const g = gridMetrics();
+      const col = index % g.cols;
+      const row = Math.floor(index / g.cols);
+      return {
+        x: col * g.stepX,
+        y: row * g.stepY
+      };
+    }
+
+    function normalizePositions() {
+      state.tiles.forEach((tile, i) => {
+        if (tile.x === null || tile.y === null || Number.isNaN(tile.x) || Number.isNaN(tile.y)) {
+          const p = defaultPosition(i);
+          tile.x = p.x;
+          tile.y = p.y;
+        } else {
+          const p = snapToGrid(tile.x, tile.y);
+          tile.x = p.x;
+          tile.y = p.y;
+        }
+      });
+    }
+
+    function setZoom(value) {
+      state.zoom = clamp(Math.round(value * 100) / 100, 0.65, 1.6);
+      document.documentElement.style.setProperty("--zoom", state.zoom);
+      zoomReadout.textContent = `${Math.round(state.zoom * 100)} %`;
+      const logicalW = board.offsetWidth * state.zoom;
+      const logicalH = board.offsetHeight * state.zoom;
+      scaleWrap.style.width = `${logicalW}px`;
+      scaleWrap.style.height = `${logicalH}px`;
+      saveStateSoon();
+    }
+
+    function latestPhotoForTile(tile) {
+      if (!tile.photoId) return null;
+      return state.photos.find(p => p.id === tile.photoId) || null;
+    }
+
+    function renderBoard() {
+      normalizePositions();
+      board.innerHTML = "";
+
+      const maxY = Math.max(...state.tiles.map(t => t.y || 0), 700);
+      board.style.minHeight = `${maxY + 180}px`;
+
+      state.tiles.forEach(tile => {
+        const el = document.createElement("article");
+        el.className = `tile ${tile.done ? "done" : ""}`;
+        el.dataset.id = tile.id;
+        el.style.left = `${tile.x}px`;
+        el.style.top = `${tile.y}px`;
+
+        const photo = latestPhotoForTile(tile);
+
+        el.innerHTML = `
+          <div class="tile-head">
+            <div class="tile-name" contenteditable="true" spellcheck="false" title="Tippen zum Bearbeiten"></div>
+            <div class="thumb">${photo ? `<img src="${photo.dataUrl}" alt="">` : "📷"}</div>
+          </div>
+          <div class="tile-mid">
+            <button class="toggle ${tile.done ? "done" : ""}">${tile.done ? "Erledigt" : "Offen"}</button>
+            <div class="weight-display">${tile.weight} kg</div>
+            <div class="weight">
+              <button class="weight-btn minus">−</button>
+              <div class="weight-display">${tile.weight} kg</div>
+              <button class="weight-btn plus">+</button>
+            </div>
+          </div>
+          <div class="drag-handle" aria-label="Verschiebegriff">•••</div>
+        `;
+
+        const nameEl = el.querySelector(".tile-name");
+        nameEl.textContent = tile.name;
+
+        nameEl.addEventListener("input", () => {
+          tile.name = nameEl.textContent.trim() || "Kachel";
+          saveStateSoon();
+        });
+
+        el.querySelector(".toggle").addEventListener("click", e => {
+          e.stopPropagation();
+          tile.done = !tile.done;
+          renderBoard();
+          saveStateSoon();
+        });
+
+        el.querySelector(".minus").addEventListener("click", e => {
+          e.stopPropagation();
+          tile.weight = Math.max(0, tile.weight - 1);
+          renderBoard();
+          saveStateSoon();
+        });
+
+        el.querySelector(".plus").addEventListener("click", e => {
+          e.stopPropagation();
+          tile.weight += 1;
+          renderBoard();
+          saveStateSoon();
+        });
+
+        let lastTap = 0;
+        el.addEventListener("pointerup", e => {
+          if (e.target.closest("button, .drag-handle, .tile-name")) return;
+          const now = Date.now();
+          if (now - lastTap < 330) {
+            e.preventDefault();
+            openCamera(tile.id);
+          }
+          lastTap = now;
+        });
+
+        attachDrag(el, tile);
+        board.appendChild(el);
+      });
+
+      setZoom(state.zoom || 1);
+    }
+
+    function attachDrag(el, tile) {
+      const handle = el.querySelector(".drag-handle");
+      let startX = 0, startY = 0, tileX = 0, tileY = 0;
+
+      handle.addEventListener("pointerdown", e => {
+        e.preventDefault();
+        handle.setPointerCapture(e.pointerId);
+        startX = e.clientX;
+        startY = e.clientY;
+        tileX = tile.x;
+        tileY = tile.y;
+        el.style.zIndex = 10;
+      });
+
+      handle.addEventListener("pointermove", e => {
+        if (!handle.hasPointerCapture(e.pointerId)) return;
+        const dx = (e.clientX - startX) / state.zoom;
+        const dy = (e.clientY - startY) / state.zoom;
+        const maxX = Math.max(0, board.clientWidth - el.offsetWidth);
+        const rawX = clamp(tileX + dx, 0, maxX);
+        const rawY = Math.max(0, tileY + dy);
+        const snapped = snapToGrid(rawX, rawY);
+        tile.x = snapped.x;
+        tile.y = snapped.y;
+        el.style.left = `${tile.x}px`;
+        el.style.top = `${tile.y}px`;
+        board.style.minHeight = `${Math.max(board.offsetHeight, tile.y + 180)}px`;
+      });
+
+      function endDrag(e) {
+        if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
+        el.style.zIndex = "";
+        saveStateSoon();
+        setZoom(state.zoom);
+      }
+      handle.addEventListener("pointerup", endDrag);
+      handle.addEventListener("pointercancel", endDrag);
+    }
+
+    document.getElementById("menuBtn").addEventListener("click", () => menu.classList.toggle("open"));
+    document.addEventListener("click", e => {
+      if (!e.target.closest("#menu, #menuBtn")) menu.classList.remove("open");
+    });
+
+    document.getElementById("resetMarks").addEventListener("click", () => {
+      state.tiles.forEach(t => t.done = false);
+      menu.classList.remove("open");
+      renderBoard();
+      saveStateSoon();
+    });
+
+    document.getElementById("resetPositions").addEventListener("click", () => {
+      state.tiles.forEach((t, i) => {
+        const p = defaultPosition(i);
+        t.x = p.x;
+        t.y = p.y;
+      });
+      menu.classList.remove("open");
+      renderBoard();
+      saveStateSoon();
+    });
+
+    document.getElementById("resetAll").addEventListener("click", () => {
+      if (!confirm("Alles zurücksetzen? Namen, Positionen, Gewichte, Status und Fotos werden gelöscht.")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      state = {
+        tiles: Array.from({ length: 10 }, (_, i) => ({
+          id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + i),
+          name: defaultNames[i],
+          done: false,
+          weight: 10,
+          x: null,
+          y: null,
+          photoId: null
+        })),
+        zoom: 1,
+        lens: 1,
+        photos: []
+      };
+      menu.classList.remove("open");
+      renderBoard();
+      saveState();
+    });
+
+    lensSelect.value = String(state.lens || 1);
+    lensSelect.addEventListener("change", () => {
+      state.lens = Number(lensSelect.value);
+      applyVideoZoom();
+      saveStateSoon();
+    });
+
+    document.getElementById("zoomMinus").addEventListener("click", () => setZoom((state.zoom || 1) - 0.05));
+    document.getElementById("zoomPlus").addEventListener("click", () => setZoom((state.zoom || 1) + 0.05));
+    document.getElementById("scrollUp").addEventListener("click", () => scroller.scrollBy({ top: -260, behavior: "smooth" }));
+    document.getElementById("scrollDown").addEventListener("click", () => scroller.scrollBy({ top: 260, behavior: "smooth" }));
+
+    async function openCamera(tileId) {
+      activeTileId = tileId;
+      const tile = state.tiles.find(t => t.id === tileId);
+      document.getElementById("cameraTitle").textContent = `Foto: ${tile?.name || "Kachel"}`;
+      document.getElementById("cameraOverlay").classList.add("open");
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 2560 }
+          },
+          audio: false
+        });
+        const video = document.getElementById("video");
+        video.srcObject = stream;
+        await video.play();
+        applyVideoZoom();
+      } catch(e) {
+        alert("Kamera konnte nicht geöffnet werden. Bitte Browser-Berechtigung für Kamera prüfen.");
+        closeCamera();
+      }
+    }
+
+    function applyVideoZoom() {
+      const video = document.getElementById("video");
+      const zoom = Number(state.lens || 1);
+      video.style.transform = `scale(${zoom})`;
+
+      try {
+        const track = stream?.getVideoTracks?.()[0];
+        const caps = track?.getCapabilities?.();
+        if (caps?.zoom) {
+          track.applyConstraints({ advanced: [{ zoom: clamp(zoom, caps.zoom.min, caps.zoom.max) }] });
+          video.style.transform = "scale(1)";
+        }
+      } catch(e) {}
+    }
+
+    function closeCamera() {
+      document.getElementById("cameraOverlay").classList.remove("open");
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      activeTileId = null;
+    }
+
+    document.getElementById("closeCamera").addEventListener("click", closeCamera);
+    document.getElementById("cancelCamera").addEventListener("click", closeCamera);
+
+    document.getElementById("captureBtn").addEventListener("click", () => capturePhoto());
+
+    function capturePhoto() {
+      const tile = state.tiles.find(t => t.id === activeTileId);
+      const video = document.getElementById("video");
+      if (!tile || !video.videoWidth) return;
+
+      const zoom = Number(state.lens || 1);
+      const sourceW = video.videoWidth / zoom;
+      const sourceH = video.videoHeight / zoom;
+      const sx = (video.videoWidth - sourceW) / 2;
+      const sy = (video.videoHeight - sourceH) / 2;
+
+      const canvas = document.createElement("canvas");
+      const targetW = 1200;
+      const targetH = Math.round(targetW * sourceH / sourceW);
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d");
+
+      ctx.drawImage(video, sx, sy, sourceW, sourceH, 0, 0, targetW, targetH);
+
+      const date = new Date();
+      const timestamp = date.toLocaleString("de-DE", {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit"
+      });
+
+      const pad = Math.round(targetW * 0.035);
+      const barH = Math.round(targetW * 0.14);
+      ctx.fillStyle = "rgba(0,0,0,.58)";
+      ctx.fillRect(0, targetH - barH, targetW, barH);
+
+      ctx.fillStyle = "white";
+      ctx.font = `800 ${Math.round(targetW * 0.04)}px system-ui, sans-serif`;
+      ctx.fillText(tile.name, pad, targetH - barH + Math.round(targetW * 0.052));
+
+      ctx.fillStyle = "rgba(255,255,255,.78)";
+      ctx.font = `600 ${Math.round(targetW * 0.027)}px system-ui, sans-serif`;
+      ctx.fillText(timestamp, pad, targetH - barH + Math.round(targetW * 0.097));
+
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+      const photo = {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        tileId: tile.id,
+        tileName: tile.name,
+        timestamp,
+        lens: zoom,
+        dataUrl
+      };
+      state.photos.unshift(photo);
+      tile.photoId = photo.id;
+      saveState();
+      closeCamera();
+      renderBoard();
+    }
+
+    document.getElementById("openGallery").addEventListener("click", () => {
+      menu.classList.remove("open");
+      renderGallery();
+      document.getElementById("galleryOverlay").classList.add("open");
+    });
+
+    document.getElementById("closeGallery").addEventListener("click", () => {
+      document.getElementById("galleryOverlay").classList.remove("open");
+    });
+
+    function renderGallery() {
+      const grid = document.getElementById("galleryGrid");
+      grid.innerHTML = "";
+      if (!state.photos.length) {
+        grid.innerHTML = `<div class="empty" style="grid-column:1/-1">Noch keine Fotos vorhanden.</div>`;
+        return;
+      }
+      state.photos.forEach(photo => {
+        const card = document.createElement("div");
+        card.className = "photo-card";
+        card.innerHTML = `<img src="${photo.dataUrl}" alt=""><div>${photo.tileName} · ${photo.timestamp}</div>`;
+        card.addEventListener("click", () => openLightbox(photo.id));
+        grid.appendChild(card);
+      });
+    }
+
+    function openLightbox(photoId) {
+      const photo = state.photos.find(p => p.id === photoId);
+      if (!photo) return;
+      activePhotoId = photoId;
+      document.getElementById("lightboxTitle").textContent = `${photo.tileName} · ${photo.timestamp}`;
+      document.getElementById("lightboxImg").src = photo.dataUrl;
+      document.getElementById("lightboxOverlay").classList.add("open");
+    }
+
+    document.getElementById("closeLightbox").addEventListener("click", () => {
+      document.getElementById("lightboxOverlay").classList.remove("open");
+      activePhotoId = null;
+    });
+
+    document.getElementById("downloadPhoto").addEventListener("click", () => {
+      const photo = state.photos.find(p => p.id === activePhotoId);
+      if (!photo) return;
+      const a = document.createElement("a");
+      const safeName = (photo.tileName || "foto").replace(/[^\wäöüÄÖÜß-]+/g, "_");
+      a.href = photo.dataUrl;
+      a.download = `${safeName}_${photo.timestamp.replace(/[^\d]/g, "")}.jpg`;
+      a.click();
+    });
+
+    document.getElementById("deletePhoto").addEventListener("click", () => {
+      if (!activePhotoId) return;
+      if (!confirm("Dieses Foto löschen?")) return;
+      state.photos = state.photos.filter(p => p.id !== activePhotoId);
+      state.tiles.forEach(t => {
+        if (t.photoId === activePhotoId) {
+          const replacement = state.photos.find(p => p.tileId === t.id);
+          t.photoId = replacement?.id || null;
+        }
+      });
+      activePhotoId = null;
+      document.getElementById("lightboxOverlay").classList.remove("open");
+      renderGallery();
+      renderBoard();
+      saveState();
+    });
+
+    window.addEventListener("resize", () => {
+      setZoom(state.zoom || 1);
+    });
+
+    renderBoard();
+  </script>
+</body>
+</html>
